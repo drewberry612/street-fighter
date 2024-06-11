@@ -4,8 +4,8 @@ For the player versus AI mode, called 'Story', I created a simple AI player that
 
 I have included my final report in this repository, and the following are videos that demonstrate the gameplay,
 
-Video 1 shows all the attack and hit animations: 
+Video 1 shows all the attack and hit animations:  https://youtu.be/CAuWCjPuZnc
 
-Video 2 shows the AI that I created:
+Video 2 shows the AI that I created: https://youtu.be/XCWIAsYNQzs
 
-Video 3 shows the option menu and debug mode:
+Video 3 shows the option menu and debug mode: https://youtu.be/DLvREgzTpXc
