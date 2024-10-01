@@ -1,4 +1,4 @@
-This is a clone of Street Fighter made from scratch in Java. To knock out the other player, the player has a multitude of attacks at their disposal, each with their own unique sound effects, damage, and stunning effects. 
+This is a clone of Street Fighter made from scratch in Java. To knock out the other player, the player has a multitude of attacks at their disposal, each with their own unique sound effects, damage, and stunning effects. This game includes retro visuals, a simple AI opponent, and multiple playable characters
 
 ![Demo](https://github.com/drewberry612/street-fighter/blob/main/streetfighterA.gif)
 
