@@ -16,12 +16,14 @@ public class Player {
     public int hitboxWidth;
     public int hitboxHeight;
     public int attackHitboxSize;
-
+    public int facing; // 1 for right, -1 for left
     public Vector position;
     public Vector velocity;
 
+    private static final int ATTACK_X_OFFSET  = 1 ;
     public Player(String side) {
         this.side = side;
+        this.facing = Objects.equals(side, "Left") ? 1 : -1; // Initialize facing direction
         states = new PlayerStates();
         frames = new PlayerFrames();
         position = Objects.equals(side, "Left") ? new Vector(80, 380) : new Vector(1080, 380);
@@ -40,64 +42,87 @@ public class Player {
     }
 
     public void update() {
-        position.addScaled(velocity, 0.02);
+        // Update current player's position based on velocity and delta time
+        position.addScaled(velocity, 0.02); // Assuming a delta time of 0.02 seconds
 
+        // Apply gravity if jumping, knocked down, or dead within certain frames
         if (states.jumping || (states.knockdown && frames.knockdown < 24) || (states.dead && frames.death < 24)) {
-            velocity.add(0, 40);
+            velocity.add(0, 40); // Gravity effect
+//            System.out.println(side + " Player: Applied gravity.");
         }
 
+        // Handle landing after jumping
         if (position.y > initialY && states.jumping) {
             states.jumping = false;
             frames.resetFrames();
             states.resetAttackStates();
             position.y = initialY;
             velocity.set(velocity.x, 0);
-            if (states.turning) {
-                states.turning = false;
-                side = Objects.equals(side, "Left") ? "Right" : "Left";
-            }
+//            System.out.println(side + " Player: Landed from jump.");
         }
 
+        // Handle landing after knockdown or death
         if (position.y > initialY && (states.knockdown || states.dead)) {
             position.y = initialY;
+//            System.out.println(side + " Player: Landed after knockdown/death.");
         }
 
-        // so that players don't go off-screen
+        // Prevent players from moving off-screen
         if (position.x <= 20) {
             position.x = 20;
+//            System.out.println(side + " Player: Reached left screen boundary.");
         } else if (position.x >= 1120) {
             position.x = 1120;
+//            System.out.println(side + " Player: Reached right screen boundary.");
         }
 
-        // body collision
+        // Body collision detection and mutual position adjustment
         if (!(position.y > other.position.y + (other.radius / 2)) && position.dist(other.position) < (radius + other.radius)) {
-            position.x += Objects.equals(side, "Left") ? -10 : 10;
+            int pushAmount = 10; // Total push to separate players
+            if (position.x < other.position.x) {
+                // Current player is to the left of the other player
+                position.x -= pushAmount / 2;
+                other.position.x += pushAmount / 2;
+//                System.out.println(side + " Player: Collided with opponent. Pushing both players apart to the sides.");
+            } else {
+                // Current player is to the right of the other player
+                position.x += pushAmount / 2;
+                other.position.x -= pushAmount / 2;
+//                System.out.println(side + " Player: Collided with opponent. Pushing both players apart to the sides.");
+            }
+
+            // Ensure that both players are still within screen bounds after adjustment
+            if (position.x < 20) position.x = 20;
+            if (position.x > 1120) position.x = 1120;
+            if (other.position.x < 20) other.position.x = 20;
+            if (other.position.x > 1120) other.position.x = 1120;
         }
 
+        // Detect and update side (Left or Right) based on current positions
         detectSideSwap();
+
+        // Adjust frames based on current state
         adjustFrames();
     }
+
 
     protected void adjustFrames() {
         if (states.dead) {
             if (frames.death < 32) {
                 frames.death += 1;
-            }
-            else if (frames.death == 32) {
+            } else if (frames.death == 32) {
                 if (position.y == initialY) {
-                    velocity.set(0,0);
+                    velocity.set(0, 0);
                     frames.death++;
                 }
             }
-        }
-        else if (states.stunned > 0) {
+        } else if (states.stunned > 0) {
             frames.stun += 1;
             if (states.stunned == 1) {
                 if (frames.stun == 12) {
                     if (Objects.equals(side, "Left")) {
                         velocity.add(160, 0);
-                    }
-                    else {
+                    } else {
                         velocity.subtract(160, 0);
                     }
                 }
@@ -107,13 +132,11 @@ public class Player {
                     states.resetStates();
                     states.idle = true;
                 }
-            }
-            else if (states.stunned == 2) {
+            } else if (states.stunned == 2) {
                 if (frames.stun == 24) {
                     if (Objects.equals(side, "Left")) {
                         velocity.add(190, 0);
-                    }
-                    else {
+                    } else {
                         velocity.subtract(190, 0);
                     }
                 }
@@ -123,13 +146,11 @@ public class Player {
                     states.resetStates();
                     states.idle = true;
                 }
-            }
-            else if (states.stunned == 3) {
+            } else if (states.stunned == 3) {
                 if (frames.stun == 12) {
                     if (Objects.equals(side, "Left")) {
                         velocity.add(160, 0);
-                    }
-                    else {
+                    } else {
                         velocity.subtract(160, 0);
                     }
                 }
@@ -141,18 +162,15 @@ public class Player {
                     frames.crouched = 18;
                 }
             }
-        }
-        else if (states.knockdown) {
+        } else if (states.knockdown) {
             if (frames.knockdown < 24) {
                 frames.knockdown += 1;
-            }
-            else if (frames.knockdown == 24) {
+            } else if (frames.knockdown == 24) {
                 if (position.y == initialY) {
-                    velocity.set(0,0);
+                    velocity.set(0, 0);
                     frames.knockdown += 1;
                 }
-            }
-            else {
+            } else {
                 frames.knockdown += 1;
             }
 
@@ -161,35 +179,26 @@ public class Player {
                 states.resetStates();
                 states.idle = true;
             }
-        }
-        else if (states.idle) {
+        } else if (states.idle) {
             if (states.crouched) {
                 if (frames.crouched == 18) {
                     frames.crouched -= 6;
-                }
-                else {
+                } else {
                     frames.crouched -= 1;
                     if (frames.crouched == 0) {
                         states.crouched = false;
                     }
                 }
-            }
-            else if (states.turning) {
-                frames.turning += 1;
-                if (frames.turning == 18) {
-                    states.turning = false;
-                    frames.turning = 0;
-                    side = Objects.equals(side, "Left") ? "Right" : "Left";
-                }
-            }
-            else if (states.jumping) {
+            } else if (states.jumping) {
                 if (states.jumpingLight >= 1) {
                     frames.attacking += 1;
                     frames.jumping += 1;
-                    // first hit
-                    decideHit(6, 12, 300, 120, 55, 6, 1);
-                    // second hit
-                    decideHit(18, 24, 300, 120, 55, 6, 1);
+                    // First hit
+                    decideHit(6, 12, 200, 55, 6, 1);
+                    // Second hit (if applicable)
+                    if (states.jumpingLight == 2) {
+                        decideHit(18, 24, 200, 55, 6, 1);
+                    }
                     if (frames.attacking == 12 && states.jumpingLight == 1) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
@@ -198,20 +207,18 @@ public class Player {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                     }
-                }
-                else if (states.jumpingMedium) {
+                } else if (states.jumpingMedium) {
                     frames.attacking += 1;
                     frames.jumping += 1;
-                    decideHit(6, 12, 300, 120, 55, 8, 1);
+                    decideHit(6, 12, 200, 55, 8, 1);
                     if (frames.attacking == 12) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                     }
-                }
-                else if (states.jumpingHeavy) {
+                } else if (states.jumpingHeavy) {
                     frames.attacking += 1;
                     frames.jumping += 1;
-                    decideHit(6, 12, 300, 120, 55, 12, 3);
+                    decideHit(6, 12, 200, 55, 12, 3);
                     if (frames.attacking == 30) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
@@ -221,29 +228,25 @@ public class Player {
                 if (frames.jumping < 36) {
                     frames.jumping += 1;
                 }
-            }
-            else {
+            } else {
                 frames.idle += 1;
                 if (frames.idle == 30) {
                     frames.idle = 0;
                 }
             }
-        }
-        else if (states.blocking) {
+        } else if (states.blocking) {
             frames.block += 1;
             if (frames.block == 12) {
                 frames.block = 0;
                 if (states.crouched) {
                     states.resetStates();
                     states.crouched = true;
-                }
-                else {
+                } else {
                     states.resetStates();
                     states.idle = true;
                 }
             }
-        }
-        else if (states.crouched) {
+        } else if (states.crouched) {
             if (frames.crouched < 18) {
                 frames.crouched += 1;
             }
@@ -251,93 +254,46 @@ public class Player {
             if (frames.crouched == 18 && states.attacking) {
                 if (states.crouchedLight) {
                     frames.attacking += 1;
-                    if (frames.attacking >= 6 && frames.attacking < 12 && !states.landedAttack) {
-                        if (Objects.equals(side, "Left")) {
-                            detectHit(300, 55, 6, 1);
-                        }
-                        else {
-                            detectHit(120, 55, 6, 1);
-                        }
-                    }
+                    decideHit(6, 12, 200, 55, 6, 1);
                     if (frames.attacking == 18) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                     }
-                }
-                else if (states.crouchedMedium) {
+                } else if (states.crouchedMedium) {
                     frames.attacking += 1;
-                    if (frames.attacking >= 12 && frames.attacking < 18 && !states.landedAttack) {
-                        if (Objects.equals(side, "Left")) {
-                            detectHit(300, 55, 8, 1);
-                        }
-                        else {
-                            detectHit(120, 55, 8, 1);
-                        }
-                    }
+                    decideHit(12, 18, 200, 55, 8, 1);
                     if (frames.attacking == 24) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                     }
-                }
-                else if (states.crouchedHeavy) {
+                } else if (states.crouchedHeavy) {
                     frames.attacking += 1;
-                    if (frames.attacking >= 12 && frames.attacking < 18 && !states.landedAttack) {
-                        if (Objects.equals(side, "Left")) {
-                            detectHit(300, 55, 12, 3);
-                        }
-                        else {
-                            detectHit(120, 55, 12, 3);
-                        }
-                    }
+                    decideHit(12, 18, 200, 55, 12, 3);
                     if (frames.attacking == 30) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                     }
-                }
-                else if (states.crouchedForwardLight) {
+                } else if (states.crouchedForwardLight) {
                     frames.attacking += 1;
-                    if (frames.attacking >= 6 && frames.attacking < 12 && !states.landedAttack) {
-                        if (Objects.equals(side, "Left")) {
-                            detectHit(300, 55, 6, 3);
-                        }
-                        else {
-                            detectHit(120, 55, 6, 3);
-                        }
-                    }
+                    decideHit(6, 12, 200, 55, 6, 3);
                     if (frames.attacking == 18) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                         states.walking_backward = false;
                         states.walking_forward = false;
                     }
-                }
-                else if (states.crouchedForwardMedium) {
+                } else if (states.crouchedForwardMedium) {
                     frames.attacking += 1;
-                    if (frames.attacking >= 12 && frames.attacking < 18 && !states.landedAttack) {
-                        if (Objects.equals(side, "Left")) {
-                            detectHit(300, 55, 8, 3);
-                        }
-                        else {
-                            detectHit(120, 55, 8, 3);
-                        }
-                    }
+                    decideHit(12, 18, 200, 55, 8, 3);
                     if (frames.attacking == 30) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                         states.walking_backward = false;
                         states.walking_forward = false;
                     }
-                }
-                else if (states.crouchedForwardHeavy) {
+                } else if (states.crouchedForwardHeavy) {
                     frames.attacking += 1;
-                    if (frames.attacking >= 12 && frames.attacking < 18 && !states.landedAttack) {
-                        if (Objects.equals(side, "Left")) {
-                            detectHit(300, 55, 12, 3);
-                        }
-                        else {
-                            detectHit(120, 55, 12, 3);
-                        }
-                    }
+                    decideHit(12, 18, 200, 55, 12, 3);
                     if (frames.attacking == 30) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
@@ -352,20 +308,21 @@ public class Player {
                 if (frames.turning == 18) {
                     states.turning = false;
                     frames.turning = 0;
-                    side = Objects.equals(side, "Left") ? "Right" : "Left";
+                    // Side will be updated in detectSideSwap()
                 }
                 frames.crouched -= 1;
             }
-        }
-        else if (states.walking_forward || states.walking_backward) {
+        } else if (states.walking_forward || states.walking_backward) {
             if (states.jumping) {
                 if (states.jumpingLight >= 1) {
                     frames.attacking += 1;
                     frames.jumping += 1;
-                    // first hit
-                    decideHit(6, 12, 300, 120, 55, 6, 1);
-                    //second hit
-                    decideHit(18, 24, 300, 120, 55, 6, 1);
+                    // First hit
+                    decideHit(6, 12, 200, 55, 6, 1);
+                    // Second hit (if applicable)
+                    if (states.jumpingLight == 2) {
+                        decideHit(18, 24, 200, 55, 6, 1);
+                    }
 
                     if (frames.attacking == 12 && states.jumpingLight == 1) {
                         frames.resetAttackFrames();
@@ -375,20 +332,18 @@ public class Player {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                     }
-                }
-                else if (states.jumpingMedium) {
+                } else if (states.jumpingMedium) {
                     frames.attacking += 1;
                     frames.jumping += 1;
-                    decideHit(6, 12, 300, 120, 55, 8, 2);
+                    decideHit(6, 12, 200, 55, 8, 2);
                     if (frames.attacking == 12) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                     }
-                }
-                else if (states.jumpingHeavy) {
+                } else if (states.jumpingHeavy) {
                     frames.attacking += 1;
                     frames.jumping += 1;
-                    decideHit(6, 12, 300, 120, 55, 12, 3);
+                    decideHit(6, 12, 200, 55, 12, 3);
                     if (frames.attacking == 30) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
@@ -398,87 +353,80 @@ public class Player {
                 if (frames.jumping < 36) {
                     frames.jumping += 1;
                 }
-            }
-            else if (states.attacking) {
+            } else if (states.attacking) {
                 if (states.forwardLight) {
                     frames.attacking += 1;
-                    decideHit(6, 12, 300, 120, 55, 6, 1);
+                    decideHit(6, 12, 200, 55, 6, 1);
                     if (frames.attacking == 18) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                         states.walking_forward = false;
                         states.idle = true;
                     }
-                }
-                else if (states.forwardMedium) {
+                } else if (states.forwardMedium) {
                     frames.attacking += 1;
-                    decideHit(12, 18, 300, 120, 55, 8, 2);
+                    decideHit(12, 18, 200, 55, 8, 2);
                     if (frames.attacking == 36) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                         states.walking_forward = false;
                         states.idle = true;
                     }
-                }
-                else if (states.forwardHeavy) {
+                } else if (states.forwardHeavy) {
                     frames.attacking += 1;
-                    decideHit(12, 18, 300, 120, 55, 12, 3);
+                    decideHit(12, 18, 200, 55, 12, 3);
                     if (frames.attacking == 24) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                         states.walking_forward = false;
                         states.idle = true;
                     }
-                }
-                else if (states.backwardLight) {
+                } else if (states.backwardLight) {
                     frames.attacking += 1;
-                    decideHit(12, 18, 300, 120, 55, 6, 1);
+                    decideHit(12, 18, 200, 55, 6, 1);
                     if (frames.attacking == 24) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                         states.walking_backward = false;
                         states.idle = true;
                     }
-                }
-                else if (states.backwardMedium) {
+                } else if (states.backwardMedium) {
                     frames.attacking += 1;
-                    decideHit(12, 18, 300, 120, 55, 8, 2);
+                    decideHit(12, 18, 200, 55, 8, 2);
                     if (frames.attacking == 24) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                         states.walking_backward = false;
                         states.idle = true;
                     }
-                }
-                else if (states.backwardHeavy) {
+                } else if (states.backwardHeavy) {
                     frames.attacking += 1;
-                    decideHit(18, 24, 300, 120, 55, 12, 3);
+                    decideHit(18, 24, 200, 55, 12, 3);
                     if (frames.attacking == 30) {
                         frames.resetAttackFrames();
                         states.resetAttackStates();
                         states.walking_backward = false;
                         states.idle = true;
                     }
-                }
-                else {
+                } else {
                     states.resetStates();
                     frames.resetFrames();
                 }
-            }
-            else {
+            } else {
                 frames.walking += 1;
                 if (frames.walking == 36) {
                     frames.walking = 0;
                 }
             }
-        }
-        else if (states.attacking) {
+        } else if (states.attacking) {
             if (states.standingLight >= 1) {
                 frames.attacking += 1;
-                // first hit
-                decideHit(6, 12, 290, 100, 55, 6, 1);
-                // second hit
-                decideHit(24, 30, 300, 110, 55, 6, 1);
+                // First hit
+                decideHit(6, 12, 200, 55, 6, 1);
+                // Second hit (if applicable)
+                if (states.standingLight == 2) {
+                    decideHit(24, 30, 200, 55, 6, 1);
+                }
                 if (frames.attacking == 18 && states.standingLight == 1) {
                     frames.resetFrames();
                     states.resetAttackStates();
@@ -492,19 +440,17 @@ public class Player {
                     states.resetAttackStates();
                     states.idle = true;
                 }
-            }
-            else if (states.standingMedium) {
+            } else if (states.standingMedium) {
                 frames.attacking += 1;
-                decideHit(12, 18, 270, 80, 25, 8, 2);
+                decideHit(12, 18, 200, 55, 8, 2);
                 if (frames.attacking == 30) {
                     frames.resetFrames();
                     states.resetAttackStates();
                     states.idle = true;
                 }
-            }
-            else if (states.standingHeavy) {
+            } else if (states.standingHeavy) {
                 frames.attacking += 1;
-                decideHit(12, 18, 280, 70, 55, 12, 3);
+                decideHit(12, 18, 200, 55, 12, 3);
                 if (frames.attacking == 30) {
                     frames.resetFrames();
                     states.resetAttackStates();
@@ -514,155 +460,156 @@ public class Player {
         }
     }
 
-    protected void decideHit(int lower, int upper, int xShiftLeft, int xShiftRight, int yShift, int damage, int stun) {
+
+    protected void decideHit(int lower, int upper, int xShift, int yShift, int damage, int stun) {
         if (frames.attacking >= lower && frames.attacking < upper && !states.landedAttack) {
-            if (Objects.equals(side, "Left") && !other.states.knockdown) {
-                detectHit(xShiftLeft, yShift, damage, stun);
-            }
-            else if (Objects.equals(side, "Right") && !other.states.knockdown) {
-                detectHit(xShiftRight, yShift, damage, stun);
+            if (!other.states.knockdown) {
+                detectHit(xShift, yShift, damage, stun);
             }
         }
     }
-
     protected void detectHit(int xShift, int yShift, int damage, int stun) {
         int otherY = (int) other.position.y;
+        int otherHeight = other.hitboxHeight;
         if (other.states.crouched) {
-            otherY += 100;
+            otherY += 100; // Adjust Y for crouching opponent
+            otherHeight -= 100; // Reduce height for crouching opponent
         }
-        if (Objects.equals(side, "Left")) {
-            for (int i = (int) (position.x + xShift); i<position.x + xShift + attackHitboxSize; i++) {
-                for (int j = (int) (position.y + yShift); j<position.y + yShift + attackHitboxSize; j++) {
-                    if (other.position.x <= i && otherY <= j && otherY + hitboxHeight >= j) {
-                        states.landedAttack = true;
-                        int num = (int) (Math.random() * 1);
-                        SoundManager.playClip(HIT.get(num));
-                        if (other.states.walking_forward && !other.states.attacking && !other.states.jumping) {
-                            other.health -= 1;
-                            other.states.blocking = true;
-                            other.states.walking_forward = false;
-                            other.velocity.set(0,0);
-                        } else {
-                            other.health -= damage;
-                            other.velocity.set(0,0);
-                            if (stun == 3) {
-                                other.states.resetStates();
-                                other.frames.resetFrames();
-                                other.states.knockdown = true;
-                                SoundManager.playClip(KNOCKDOWN);
-                                other.velocity.add(480, -580);
-                            } else if (other.states.crouched) {
-                                other.states.resetStates();
-                                other.frames.resetFrames();
-                                other.states.stunned = 3;
-                                other.states.crouched = true;
-                                num = (int) (Math.random() * 3);
-                                SoundManager.playClip(STUN.get(num));
-                                other.velocity.add(320, 0);
-                            } else if (other.states.jumping) {
-                                other.states.resetStates();
-                                other.frames.resetFrames();
-                                other.states.knockdown = true;
-                                SoundManager.playClip(KNOCKDOWN);
-                                other.velocity.add(480, -80);
-                            } else {
-                                other.states.resetStates();
-                                other.frames.resetFrames();
-                                switch (stun) {
-                                    case 1 -> {
-                                        other.states.stunned = 1;
-                                        num = (int) (Math.random() * 3);
-                                        SoundManager.playClip(STUN.get(num));
-                                        other.velocity.add(320, 0);
-                                    }
-                                    case 2 -> {
-                                        other.states.stunned = 2;
-                                        SoundManager.playClip(HEAVYSTUN);
-                                        other.velocity.add(380, 0);
-                                    }
-                                }
-                            }
-                        }
-                        break;
-                    }
-                }
-                if (states.landedAttack) {
-                    break;
-                }
+
+        // Adjust xShift based on the player's facing direction and apply the offset
+        int xShiftAdjusted = xShift * facing + (facing == 1 ? -ATTACK_X_OFFSET : ATTACK_X_OFFSET);
+//        System.out.println("Attack X Shift Adjusted: " + xShiftAdjusted);
+
+        // Calculate attack hitbox position
+        int attackXStart = (int) (position.x + xShiftAdjusted);
+        int attackXEnd = attackXStart + attackHitboxSize;
+//        System.out.println("Attack Hitbox X Range: " + attackXStart + " to " + attackXEnd);
+
+        int attackYStart = (int) (position.y + yShift);
+        int attackYEnd = attackYStart + attackHitboxSize;
+//        System.out.println("Attack Hitbox Y Range: " + attackYStart + " to " + attackYEnd);
+
+        int otherXStart = (int) other.position.x;
+        // Define opponent hitbox adjustment based on facing direction
+        if (facing == -1) {
+            otherXStart = (int) other.position.x + 30;
+        } else {
+            otherXStart = (int) other.position.x - 30;
+        }
+
+        int otherXEnd = otherXStart + other.hitboxWidth;
+        int otherYEnd = otherY + otherHeight;
+
+        // Calculate horizontal distance between players
+        double horizontalDistance = Math.abs(this.position.x - other.position.x);
+//        System.out.println("Horizontal Distance Between Players: " + horizontalDistance);
+
+        // Define distance threshold
+        int distanceThreshold = 300;
+
+        // Check for collision and distance condition
+        boolean xOverlap = attackXStart < otherXEnd && attackXEnd > otherXStart;
+        boolean yOverlap = attackYStart < otherYEnd && attackYEnd > otherY;
+        boolean withinDistance = horizontalDistance < distanceThreshold;
+
+//        System.out.println("xOverlap: " + xOverlap + ", yOverlap: " + yOverlap + ", withinDistance: " + withinDistance);
+//        System.out.println("otherXStart: " + otherXStart + " attackXStart: " + attackXStart);
+//        System.out.println("otherXEnd: " + otherXEnd + " attackXEnd: " + attackXEnd);
+
+        if ((withinDistance && yOverlap) ) {
+//            System.out.println("Hit Detected!");
+            states.landedAttack = true;
+            handleAttack(damage, stun);
+        }
+    }
+
+
+
+
+    private void handleAttack(int damage, int stun) {
+        if (HIT.isEmpty()) {
+            // No hit sounds available; optionally log or handle this case
+            return;
+        }
+        int num = (int) (Math.random() * HIT.size());
+        SoundManager.playClip(HIT.get(num));
+
+        // Determine if opponent is holding away from attacker
+        boolean isHoldingAway = ((other.position.x > position.x) && other.states.walking_backward) ||
+                                ((other.position.x < position.x) && other.states.walking_forward);
+
+        boolean isBlocking = isHoldingAway && !other.states.attacking && !other.states.jumping;
+
+        if (isBlocking) {
+            // Handle blocking (chip damage)
+            other.health -= 1;
+            other.states.blocking = true;
+            other.velocity.set(0, 0);
+        } else {
+            // Handle taking damage
+            other.health -= damage;
+            other.velocity.set(0, 0);
+            applyStunOrKnockdown(stun);
+        }
+    }
+
+    private void applyStunOrKnockdown(int stun) {
+        if (stun == 3) {
+            other.states.resetStates();
+            other.frames.resetFrames();
+            other.states.knockdown = true;
+            SoundManager.playClip(KNOCKDOWN);
+            other.velocity.add(facing * 480, -580);
+        } else if (other.states.crouched) {
+            other.states.resetStates();
+            other.frames.resetFrames();
+            other.states.stunned = 3;
+            other.states.crouched = true;
+            if (STUN.isEmpty()) {
+                // Handle empty STUN list
+                return;
             }
-        }
-        else {
-            for (int i = (int) (position.x - xShift); i<position.x - xShift + attackHitboxSize; i++) {
-                for (int j = (int) (position.y + yShift); j<position.y + yShift + attackHitboxSize; j++) {
-                    if (other.position.x + hitboxWidth >= i && other.position.y <= j && other.position.y + hitboxHeight >= j) {
-                        states.landedAttack = true;
-                        int num = (int) (Math.random() * 1);
-                        SoundManager.playClip(HIT.get(num));
-                        if (other.states.walking_backward && !other.states.attacking && !other.states.jumping) {
-                            other.health -= 1;
-                            other.states.blocking = true;
-                            other.states.walking_backward = false;
-                            other.velocity.set(0,0);
-                        } else {
-                            other.health -= damage;
-                            other.velocity.set(0,0);
-                            if (stun == 3) {
-                                other.states.resetStates();
-                                other.frames.resetFrames();
-                                other.states.knockdown = true;
-                                SoundManager.playClip(KNOCKDOWN);
-                                other.velocity.add(-480, -580);
-                            } else if (other.states.crouched) {
-                                other.states.resetStates();
-                                other.frames.resetFrames();
-                                other.states.stunned = 3;
-                                other.states.crouched = true;
-                                num = (int) (Math.random() * 3);
-                                SoundManager.playClip(STUN.get(num));
-                                other.velocity.add(-320, 0);
-                            } else if (other.states.jumping) {
-                                other.states.resetStates();
-                                other.frames.resetFrames();
-                                other.states.knockdown = true;
-                                SoundManager.playClip(KNOCKDOWN);
-                                other.velocity.add(-480, -80);
-                            } else {
-                                other.states.resetStates();
-                                other.frames.resetFrames();
-                                switch (stun) {
-                                    case 1 -> {
-                                        other.states.stunned = 1;
-                                        num = (int) (Math.random() * 3);
-                                        SoundManager.playClip(STUN.get(num));
-                                        other.velocity.add(-320, 0);
-                                    }
-                                    case 2 -> {
-                                        other.states.stunned = 2;
-                                        SoundManager.playClip(HEAVYSTUN);
-                                        other.velocity.add(-380, 0);
-                                    }
-                                }
-                            }
-                        }
+            int num = (int) (Math.random() * STUN.size());
+            SoundManager.playClip(STUN.get(num));
+            other.velocity.add(facing * 320, 0);
+        } else if (other.states.jumping) {
+            other.states.resetStates();
+            other.frames.resetFrames();
+            other.states.knockdown = true;
+            SoundManager.playClip(KNOCKDOWN);
+            other.velocity.add(facing * 480, -80);
+        } else {
+            other.states.resetStates();
+            other.frames.resetFrames();
+            switch (stun) {
+                case 1 -> {
+                    other.states.stunned = 1;
+                    if (STUN.isEmpty()) {
+                        // Handle empty STUN list
                         break;
                     }
+                    int num = (int) (Math.random() * STUN.size());
+                    SoundManager.playClip(STUN.get(num));
+                    other.velocity.add(facing * 320, 0);
                 }
-                if (states.landedAttack) {
-                    break;
+                case 2 -> {
+                    other.states.stunned = 2;
+                    SoundManager.playClip(HEAVYSTUN);
+                    other.velocity.add(facing * 380, 0);
                 }
             }
         }
     }
 
     protected void detectSideSwap() {
-        if (Objects.equals(side, "Left")) {
-            if (position.x > other.position.x) {
-                states.turning = true;
-            }
+        if (position.x < other.position.x) {
+            side = "Left";
+            facing = 1; // Facing right
         } else {
-            if (position.x < other.position.x) {
-                states.turning = true;
-            }
+            side = "Right";
+            facing = -1; // Facing left
         }
     }
+
+    
 }
