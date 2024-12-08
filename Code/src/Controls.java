@@ -3,6 +3,7 @@ import utilities.SoundManager;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.Objects;
+import java.lang.reflect.Field;
 
 import static utilities.SoundManager.ATTACK;
 
@@ -11,6 +12,8 @@ public class Controls extends KeyAdapter {
     private final int type;
     private final int xSpeed;
     private final int ySpeed;
+    private boolean player2LeftPressed = false; 
+
 
     public Controls(Game game, int type) {
         this.game = game;
@@ -19,9 +22,27 @@ public class Controls extends KeyAdapter {
         ySpeed = 940;
     }
 
+    public void printTrueStates(Object states) {
+        Field[] fields = states.getClass().getDeclaredFields(); 
+
+        System.out.println("True states:");
+        for (Field field : fields) {
+            try {
+                field.setAccessible(true); 
+                Object value = field.get(states); 
+                if (value instanceof Boolean && (Boolean) value) { 
+                    System.out.println(field.getName() + " = true");
+                }
+            } catch (IllegalAccessException e) {
+                System.err.println("Error accessing field: " + field.getName());
+            }
+        }
+    }
+
     @Override
     public void keyPressed(KeyEvent e) {
         int key = e.getKeyCode();
+        
         // player 1
         if (key == game.player1Controls[2]) { // Left action
             if (type == 1 && game.player1.velocity.x == 0 && !game.player1.states.crouched && !game.player1.states.attacking && !game.player1.states.knockdown && !(game.player1.states.stunned > 0) && !game.player1.states.blocking) {
@@ -191,19 +212,42 @@ public class Controls extends KeyAdapter {
         }
 
         // player 2
-        else if (key == game.player2Controls[2]) { // Left action
-            if (type == 2 && game.player2.velocity.x == 0 && !game.player2.states.crouched && !game.player2.states.attacking && !game.player2.states.knockdown && !(game.player2.states.stunned > 0) && !game.player2.states.blocking) {
+        if (key == game.player2Controls[2]) { // Left action
+            printTrueStates(game.player2.states);
+             if(game.player2.states.blocking || game.player2.states.idle) {
+//            	 game.player2.velocity.subtract(xSpeed, 0);
+            	 
+            	 game.player2.states.idle = false;
+                 game.player2.states.walking_backward = true;
+                 game.player2.velocity.x=0;
+             }
+
+            if (type == 2 && !player2LeftPressed && game.player2.velocity.x == 0 
+                    && !game.player2.states.crouched && !game.player2.states.attacking 
+                    && !game.player2.states.knockdown && !(game.player2.states.stunned > 0) 
+                    && !game.player2.states.blocking) {
                 game.player2.velocity.subtract(xSpeed, 0);
+                game.player2.states.walking_forward = false;
+
                 game.player2.states.walking_backward = true;
+
                 game.player2.states.idle = false;
+                player2LeftPressed = true; 
             }
-            if (type == 2 && game.player2.states.crouched && !game.player2.states.idle) {
-                game.player2.states.walking_backward = true;
+        } else if (type == 2 && player2LeftPressed) {
+            game.player2.velocity.add(xSpeed, 0);
+            game.player2.states.walking_backward = false;
+            game.player2.frames.walking = 0;
+            if (!game.player2.states.crouched) {
+                game.player2.states.idle = true;
             }
+            player2LeftPressed = false; 
         }
         else if (key == game.player2Controls[3]) { // Right action
             if (type == 2 && game.player2.velocity.x == 0 && !game.player2.states.crouched && !game.player2.states.attacking && !game.player2.states.knockdown && !(game.player2.states.stunned > 0) && !game.player2.states.blocking) {
                 game.player2.velocity.add(xSpeed, 0);
+                game.player2.states.walking_backward = false;
+
                 game.player2.states.walking_forward = true;
                 game.player2.states.idle = false;
             }
@@ -228,18 +272,22 @@ public class Controls extends KeyAdapter {
             }
         }
         else if (key == game.player2Controls[4]) { // Light attack
+            printTrueStates(game.player2.states);
+
             if (type == 2 && !game.player2.states.knockdown && !(game.player2.states.stunned > 0) && !game.player2.states.blocking && !(game.player2.states.idle && game.player2.states.crouched) && !(game.player2.frames.crouched < 18 && game.player2.states.crouched)) {
-                SoundManager.playClip(ATTACK);
+            	
+
+            	SoundManager.playClip(ATTACK);
                 if (game.player2.states.attacking && game.player2.states.standingLight == 1) {
                     game.player2.states.standingLight = 2;
                 } else if (game.player2.states.attacking && game.player2.states.jumpingLight == 1) {
                     game.player2.states.jumpingLight = 2;
                 } else if (!game.player2.states.attacking && game.player2.states.crouched && game.player2.frames.crouched == 18) {
                     game.player2.states.attacking = true;
-                    if (game.player2.states.walking_forward && Objects.equals(game.player2.side, "Left")) {
+                    if (game.player2.states.walking_forward && Objects.equals(game.player2.side, "Right")) {
                         game.player2.states.crouchedForwardLight = true;
                     }
-                    else if (game.player2.states.walking_backward && Objects.equals(game.player2.side, "Right")) {
+                    else if (game.player2.states.walking_backward && Objects.equals(game.player2.side, "Left")) {
                         game.player2.states.crouchedForwardLight = true;
                     }
                     else {
@@ -250,7 +298,7 @@ public class Controls extends KeyAdapter {
                     game.player2.states.jumpingLight = 1;
                 } else if (!game.player2.states.attacking && game.player2.states.walking_forward) {
                     game.player2.states.attacking = true;
-                    if (Objects.equals(game.player2.side, "Left")) {
+                    if (Objects.equals(game.player2.side, "Right")) {
                         game.player2.states.forwardLight = true;
                     }
                     else {
@@ -274,8 +322,15 @@ public class Controls extends KeyAdapter {
             }
         }
         else if (key == game.player2Controls[5]) { // Medium attack
+            printTrueStates(game.player2.states);
+            
+
             if (type == 2 && !game.player2.states.attacking && !game.player2.states.knockdown && !(game.player2.states.stunned > 0) && !game.player2.states.blocking && !(game.player2.states.idle && game.player2.states.crouched) && !(game.player2.frames.crouched < 18 && game.player2.states.crouched)) {
                 SoundManager.playClip(ATTACK);
+                if(game.player2.states.idle) {
+                game.player2.states.idle = false;
+                game.player2.states.attacking = true;
+                game.player2.states.standingMedium = true;}
                 if (game.player2.states.jumping) {
                     game.player2.states.attacking = true;
                     game.player2.states.jumpingMedium = true;
@@ -292,7 +347,7 @@ public class Controls extends KeyAdapter {
                     }
                 } else if (game.player2.states.walking_forward) {
                     game.player2.states.attacking = true;
-                    if (Objects.equals(game.player2.side, "Left")) {
+                    if (Objects.equals(game.player2.side, "Right")) {
                         game.player2.states.forwardMedium = true;
                     }
                     else {
@@ -318,12 +373,17 @@ public class Controls extends KeyAdapter {
         else if (key == game.player2Controls[6]) { // Heavy attack
             if (type == 2 && !game.player2.states.attacking && !game.player2.states.knockdown && !(game.player2.states.stunned > 0) && !game.player2.states.blocking && !(game.player2.states.idle && game.player2.states.crouched) && !(game.player2.frames.crouched < 18 && game.player2.states.crouched)) {
                 SoundManager.playClip(ATTACK);
+                if (game.player2.states.idle) {
+                    game.player2.states.attacking = true;
+                    game.player2.states.standingHeavy = true;
+                    game.player2.states.idle = false;
+                }
                 if (game.player2.states.jumping) {
                     game.player2.states.attacking = true;
                     game.player2.states.jumpingHeavy = true;
                 } else if (game.player2.states.crouched && game.player2.frames.crouched == 18) {
                     game.player2.states.attacking = true;
-                    if (game.player2.states.walking_forward && Objects.equals(game.player2.side, "Left")) {
+                    if (game.player2.states.walking_forward && Objects.equals(game.player2.side, "Right")) {
                         game.player2.states.crouchedForwardHeavy = true;
                     }
                     else if (game.player2.states.walking_backward && Objects.equals(game.player2.side, "Right")) {
@@ -334,7 +394,7 @@ public class Controls extends KeyAdapter {
                     }
                 } else if (game.player2.states.walking_forward) {
                     game.player2.states.attacking = true;
-                    if (Objects.equals(game.player2.side, "Left")) {
+                    if (Objects.equals(game.player2.side, "Right")) {
                         game.player2.states.forwardHeavy = true;
                     }
                     else {
@@ -392,15 +452,20 @@ public class Controls extends KeyAdapter {
                 game.player1.states.idle = true;
             }
         }
-        else if (key == game.player2Controls[2]) {
-            if (type == 2 && game.player2.velocity.x == -xSpeed && !game.player2.states.knockdown && !(game.player2.states.stunned > 0) && !game.player2.states.blocking) {
+        else if (key == game.player2Controls[2]) { // Left action
+            if (type == 2 && player2LeftPressed && game.player2.velocity.x == -xSpeed 
+                    && !game.player2.states.knockdown && !(game.player2.states.stunned > 0) 
+                    && !game.player2.states.blocking) {
+            	
                 game.player2.velocity.add(xSpeed, 0);
                 game.player2.states.walking_backward = false;
                 game.player2.frames.walking = 0;
                 if (!game.player2.states.crouched) {
                     game.player2.states.idle = true;
                 }
+                player2LeftPressed = false;
             }
+            
         }
         else if (key == game.player2Controls[3]) {
             if (type == 2 && game.player2.velocity.x == xSpeed && !game.player2.states.knockdown && !(game.player2.states.stunned > 0) && !game.player2.states.blocking) {
@@ -415,7 +480,11 @@ public class Controls extends KeyAdapter {
         else if (key == game.player2Controls[1]) {
             if (type == 2 && game.player2.states.crouched && !game.player2.states.attacking) {
                 game.player2.states.idle = true;
+                game.player2.states.crouched = false;
             }
         }
     }
+    
+    
+    
 }
